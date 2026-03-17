@@ -60,10 +60,27 @@ async def queue_worker():
                 category = await guild.create_category(CATEGORY_NAME)
                 await asyncio.sleep(1)
 
+            # Set permissions: Everyone and Viewer can view, connect, speak, message, and stream.
+            # Author gets full control over their room.
+            viewer_role = next((r for r in guild.roles if r.name.lower() == "viewer"), None)
+
             overwrites = {
-                guild.default_role: discord.PermissionOverwrite(connect=True),
-                ctx.author: discord.PermissionOverwrite(connect=True, view_channel=True)
+                guild.default_role: discord.PermissionOverwrite(
+                    view_channel=True, connect=True, speak=True, 
+                    send_messages=True, stream=True, use_embedded_activities=True
+                ),
+                ctx.author: discord.PermissionOverwrite(
+                    view_channel=True, connect=True, speak=True, 
+                    send_messages=True, stream=True, use_embedded_activities=True,
+                    manage_channels=True, manage_permissions=True
+                )
             }
+
+            if viewer_role:
+                overwrites[viewer_role] = discord.PermissionOverwrite(
+                    view_channel=True, connect=True, speak=True, 
+                    send_messages=True, stream=True, use_embedded_activities=True
+                )
 
             channel = await guild.create_voice_channel(
                 name=name,
