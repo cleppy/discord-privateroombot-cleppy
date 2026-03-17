@@ -57,7 +57,7 @@ async def queue_worker():
                 guild.default_role: discord.PermissionOverwrite(connect=True),
                 ctx.author: discord.PermissionOverwrite(
                     manage_channels=True,
-                    move_members=True
+                    # move_members=True
                 )
             }
 
@@ -70,7 +70,7 @@ async def queue_worker():
 
             await asyncio.sleep(2)
 
-            await ctx.send(f"✅ Room created: **{name}** (Limit: {limit})")
+            await ctx.send(f"✅ {ctx.author.mention} Room created: **{name}** (Limit: {limit})")
 
         except Exception as e:
             try:
