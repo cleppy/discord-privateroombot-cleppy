@@ -15,9 +15,7 @@ ALLOWED_ROLES = [r.strip().lower() for r in roles_env.split(",") if r.strip()]
 bypass_env = os.getenv("BYPASS_ROLES", "")
 BYPASS_ROLES = [r.strip().lower() for r in bypass_env.split(",") if r.strip()]
 
-cmd_channel_raw = os.getenv("COMMAND_CHANNEL_ID")
-COMMAND_CHANNEL_ID = int(cmd_channel_raw) if cmd_channel_raw else None
-
+# COOLDOWN settings
 COOLDOWN = 60
 
 intents = discord.Intents.default()
@@ -36,6 +34,15 @@ queue = asyncio.Queue()
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
+    print("Checking permissions in guilds...")
+    for guild in bot.guilds:
+        perms = guild.me.guild_permissions
+        print(f"Server: {guild.name}")
+        print(f" - Manage Channels: {perms.manage_channels}")
+        print(f" - Manage Roles: {perms.manage_roles}")
+        if not perms.manage_channels or not perms.manage_roles:
+            print("⚠️ WARNING: Bot is missing critical permissions!")
+
     # Check if worker is already running to avoid duplicates on reconnect
     if not hasattr(bot, 'worker_started'):
         bot.loop.create_task(queue_worker())
@@ -55,10 +62,7 @@ async def queue_worker():
 
             overwrites = {
                 guild.default_role: discord.PermissionOverwrite(connect=True),
-                ctx.author: discord.PermissionOverwrite(
-                    manage_channels=True,
-                    # move_members=True
-                )
+                ctx.author: discord.PermissionOverwrite(connect=True, view_channel=True)
             }
 
             await guild.create_voice_channel(
@@ -72,9 +76,18 @@ async def queue_worker():
 
             await ctx.send(f"✅ {ctx.author.mention} Room created: **{name}** (Limit: {limit})")
 
-        except Exception as e:
+        except discord.Forbidden as e:
+            error_msg = f"❌ Permission Error (403): {e.text}. Ensure the bot has 'Manage Channels' and 'Manage Roles' permissions."
+            print(error_msg)
             try:
-                await ctx.send(f"❌ Error: {e}")
+                await ctx.send(error_msg)
+            except:
+                pass
+        except Exception as e:
+            error_msg = f"❌ Error: {e}"
+            print(error_msg)
+            try:
+                await ctx.send(error_msg)
             except:
                 pass
 
@@ -84,10 +97,6 @@ async def queue_worker():
 
 @bot.command(name="pr")
 async def create_private_room(ctx, name: str, limit: int):
-
-    if ctx.channel.id != COMMAND_CHANNEL_ID:
-        return
-
     user = ctx.author
     user_roles = [role.name.lower() for role in user.roles]
 
