@@ -68,12 +68,12 @@ async def queue_worker():
                 guild.default_role: discord.PermissionOverwrite(
                     view_channel=True, connect=True, speak=True, 
                     send_messages=True, stream=True, use_embedded_activities=True,
-                    use_voice_activation=True, use_soundboard=True
+                    use_voice_activation=True, use_soundboard=True, use_external_sounds=True
                 ),
                 ctx.author: discord.PermissionOverwrite(
                     view_channel=True, connect=True, speak=True, 
                     send_messages=True, stream=True, use_embedded_activities=True,
-                    use_voice_activation=True, use_soundboard=True,
+                    use_voice_activation=True, use_soundboard=True, use_external_sounds=True,
                     manage_channels=True, manage_permissions=True
                 )
             }
@@ -82,7 +82,7 @@ async def queue_worker():
                 overwrites[viewer_role] = discord.PermissionOverwrite(
                     view_channel=True, connect=True, speak=True, 
                     send_messages=True, stream=True, use_embedded_activities=True,
-                    use_voice_activation=True, use_soundboard=True
+                    use_voice_activation=True, use_soundboard=True, use_external_sounds=True
                 )
 
             channel = await guild.create_voice_channel(
