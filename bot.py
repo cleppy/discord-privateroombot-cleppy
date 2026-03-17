@@ -67,7 +67,7 @@ async def create_private_room(ctx, name: str, limit: int):
             overwrites=overwrites
         )
 
-        await ctx.author.move_to(channel)
+        #await ctx.author.move_to(channel)
 
         await ctx.send(f"✅ Room created: **{name}** (Limit: {limit})")
 
