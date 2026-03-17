@@ -3,13 +3,12 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
-# .env dosyasını yükle
+# Load environment variables
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-# Bot ayarları
+# Bot intents
 intents = discord.Intents.default()
-intents.message_content = True
 intents.voice_states = True
 intents.guilds = True
 
@@ -17,61 +16,79 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 CATEGORY_NAME = "Private Rooms"
 
+
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user.name}!')
 
+
 @bot.command(name='pr')
 async def create_private_room(ctx, name: str, limit: int):
-    """
-    Creates a private voice room with a specified name and member limit.
-    Example: !pr "My Room" 5
-    """
     guild = ctx.guild
-    
-    # Find or create "Private Rooms" category
+
+    # Validate user limit
+    if limit < 1 or limit > 99:
+        await ctx.send("❌ Limit must be between 1 and 99.")
+        return
+
+    # Check if user is in a voice channel
+    if not ctx.author.voice:
+        await ctx.send("❌ You must join a voice channel first!")
+        return
+
+    # Find or create category
     category = discord.utils.get(guild.categories, name=CATEGORY_NAME)
     if category is None:
         category = await guild.create_category(CATEGORY_NAME)
-        print(f'Category "{CATEGORY_NAME}" created.')
 
-    # Create voice channel
+    # Channel permissions:
+    # - Everyone can connect
+    # - Room creator has management permissions
     overwrites = {
         guild.default_role: discord.PermissionOverwrite(connect=True),
-        ctx.author: discord.PermissionOverwrite(manage_channels=True, move_members=True)
+        ctx.author: discord.PermissionOverwrite(
+            manage_channels=True,
+            move_members=True
+        )
     }
 
     try:
-        new_channel = await guild.create_voice_channel(
+        # Create voice channel
+        channel = await guild.create_voice_channel(
             name=name,
             category=category,
             user_limit=limit,
             overwrites=overwrites
         )
-        await ctx.send(f'✅ Room **{name}** created! (Limit: {limit})')
-        print(f'New room created: {name} by {ctx.author}')
+
+        # Move user into the new channel
+        await ctx.author.move_to(channel)
+
+        await ctx.send(f"✅ Your room is ready: **{name}** (Limit: {limit})")
+        print(f"Room created: {name}")
+
     except Exception as e:
-        await ctx.send(f'❌ Error creating room: {e}')
-        print(f'Error: {e}')
+        await ctx.send(f"❌ Error: {e}")
+        print(e)
+
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    """
-    Monitors voice channels and deletes empty ones in the "Private Rooms" category.
-    """
+    # Automatically delete empty rooms
     if before.channel is not None:
         channel = before.channel
-        
+
         if channel.category and channel.category.name == CATEGORY_NAME:
             if len(channel.members) == 0:
                 try:
-                    await channel.delete(reason="Room deleted automatically because it was empty.")
-                    print(f'Empty room deleted: {channel.name}')
+                    await channel.delete()
+                    print(f"Deleted empty room: {channel.name}")
                 except Exception as e:
-                    print(f'Error deleting room ({channel.name}): {e}')
+                    print(e)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     if TOKEN:
         bot.run(TOKEN)
     else:
-        print("Hata: DISCORD_TOKEN bulunamadı. Lütfen .env dosyasını kontrol edin.")
+        print("Error: DISCORD_TOKEN not found!")
