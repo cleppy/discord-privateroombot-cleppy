@@ -1,5 +1,6 @@
 import os
 import time
+import asyncio
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -13,6 +14,8 @@ ALLOWED_ROLES = [r.strip() for r in roles_env.split(",") if r.strip()]
 bypass_env = os.getenv("BYPASS_ROLES", "")
 BYPASS_ROLES = [r.strip() for r in bypass_env.split(",") if r.strip()]
 
+COMMAND_CHANNEL_ID = int(os.getenv("COMMAND_CHANNEL_ID"))
+
 COOLDOWN = 60
 
 intents = discord.Intents.default()
@@ -23,17 +26,64 @@ intents.guilds = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 CATEGORY_NAME = "Private Rooms"
+
 user_cooldowns = {}
+queue = asyncio.Queue()
+
 
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
+    bot.loop.create_task(queue_worker())
+
+
+async def queue_worker():
+    while True:
+        ctx, name, limit = await queue.get()
+        try:
+            guild = ctx.guild
+
+            category = discord.utils.get(guild.categories, name=CATEGORY_NAME)
+            if category is None:
+                category = await guild.create_category(CATEGORY_NAME)
+                await asyncio.sleep(1)
+
+            overwrites = {
+                guild.default_role: discord.PermissionOverwrite(connect=True),
+                ctx.author: discord.PermissionOverwrite(
+                    manage_channels=True,
+                    move_members=True
+                )
+            }
+
+            await guild.create_voice_channel(
+                name=name,
+                category=category,
+                user_limit=limit,
+                overwrites=overwrites
+            )
+
+            await asyncio.sleep(2)
+
+            await ctx.send(f"✅ Room created: **{name}** (Limit: {limit})")
+
+        except Exception as e:
+            try:
+                await ctx.send(f"❌ Error: {e}")
+            except:
+                pass
+
+        queue.task_done()
+        await asyncio.sleep(2)
+
 
 @bot.command(name="pr")
 async def create_private_room(ctx, name: str, limit: int):
-    user = ctx.author
-    guild = ctx.guild
 
+    if ctx.channel.id != COMMAND_CHANNEL_ID:
+        return
+
+    user = ctx.author
     user_roles = [role.name for role in user.roles]
 
     if not any(role in ALLOWED_ROLES for role in user_roles):
@@ -44,8 +94,8 @@ async def create_private_room(ctx, name: str, limit: int):
 
     if not has_bypass:
         now = time.time()
-        last_used = user_cooldowns.get(user.id, 0)
-        remaining = COOLDOWN - (now - last_used)
+        last = user_cooldowns.get(user.id, 0)
+        remaining = COOLDOWN - (now - last)
 
         if remaining > 0:
             await ctx.send(f"⏳ Wait {int(remaining)} seconds.")
@@ -61,31 +111,9 @@ async def create_private_room(ctx, name: str, limit: int):
         await ctx.send("❌ You must join a voice channel first.")
         return
 
-    category = discord.utils.get(guild.categories, name=CATEGORY_NAME)
-    if category is None:
-        category = await guild.create_category(CATEGORY_NAME)
+    await queue.put((ctx, name, limit))
+    await ctx.send("⏳ Creating your room...")
 
-    overwrites = {
-        guild.default_role: discord.PermissionOverwrite(connect=True),
-        ctx.author: discord.PermissionOverwrite(
-            manage_channels=True,
-            move_members=True
-        )
-    }
-
-    try:
-        channel = await guild.create_voice_channel(
-            name=name,
-            category=category,
-            user_limit=limit,
-            overwrites=overwrites
-        )
-
-        await ctx.send(f"✅ Room created: **{name}** (Limit: {limit})")
-
-    except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
-        print(e)
 
 @bot.event
 async def on_voice_state_update(member, before, after):
@@ -97,6 +125,7 @@ async def on_voice_state_update(member, before, after):
                     await channel.delete()
                 except:
                     pass
+
 
 if __name__ == "__main__":
     bot.run(TOKEN)
