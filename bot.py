@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-ALLOWED_ROLES = ["Member", "VIP"]
+roles_env = os.getenv("ALLOWED_ROLES", "")
+ALLOWED_ROLES = [role.strip() for role in roles_env.split(",") if role.strip()]
 
 intents = discord.Intents.default()
 intents.message_content = True
