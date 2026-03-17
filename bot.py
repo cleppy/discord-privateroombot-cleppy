@@ -3,13 +3,14 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
-# Load env
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-# Intents (🔥 EN ÖNEMLİ KISIM)
+# 🔥 AYARLAR
+ALLOWED_ROLES = ["Member", "VIP"]  # <-- BURAYA ROL İSİMLERİNİ YAZ
+
 intents = discord.Intents.default()
-intents.message_content = True  # 🔥 BU ŞART
+intents.message_content = True
 intents.voice_states = True
 intents.guilds = True
 
@@ -23,26 +24,34 @@ async def on_ready():
     print(f'Logged in as {bot.user.name}!')
 
 
+# 🔥 COOLDOWN: 10 dakika (600 saniye)
 @bot.command(name='pr')
+@commands.cooldown(1, 600, commands.BucketType.user)
 async def create_private_room(ctx, name: str, limit: int):
     guild = ctx.guild
 
-    # Limit check
+    # 🔒 ROLE CHECK
+    user_roles = [role.name for role in ctx.author.roles]
+    if not any(role in ALLOWED_ROLES for role in user_roles):
+        await ctx.send("❌ You are not allowed to create private rooms.")
+        return
+
+    # Limit kontrol
     if limit < 1 or limit > 99:
         await ctx.send("❌ Limit must be between 1 and 99.")
         return
 
-    # Must be in voice
+    # Voice kontrol
     if not ctx.author.voice:
         await ctx.send("❌ You must join a voice channel first!")
         return
 
-    # Get or create category
+    # Kategori
     category = discord.utils.get(guild.categories, name=CATEGORY_NAME)
     if category is None:
         category = await guild.create_category(CATEGORY_NAME)
 
-    # Permissions (everyone can join)
+    # İzinler
     overwrites = {
         guild.default_role: discord.PermissionOverwrite(connect=True),
         ctx.author: discord.PermissionOverwrite(
@@ -59,7 +68,6 @@ async def create_private_room(ctx, name: str, limit: int):
             overwrites=overwrites
         )
 
-        # Move user
         await ctx.author.move_to(channel)
 
         await ctx.send(f"✅ Room created: **{name}** (Limit: {limit})")
@@ -69,6 +77,16 @@ async def create_private_room(ctx, name: str, limit: int):
         print(e)
 
 
+# 🔥 COOLDOWN ERROR
+@create_private_room.error
+async def pr_error(ctx, error):
+    if isinstance(error, commands.CommandOnCooldown):
+        minutes = int(error.retry_after // 60)
+        seconds = int(error.retry_after % 60)
+        await ctx.send(f"⏳ You must wait {minutes}m {seconds}s before creating another room.")
+
+
+# Auto delete
 @bot.event
 async def on_voice_state_update(member, before, after):
     if before.channel is not None:
