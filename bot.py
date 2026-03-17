@@ -8,13 +8,15 @@ from dotenv import load_dotenv
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 
+# Role settings (Case-insensitive)
 roles_env = os.getenv("ALLOWED_ROLES", "")
-ALLOWED_ROLES = [r.strip() for r in roles_env.split(",") if r.strip()]
+ALLOWED_ROLES = [r.strip().lower() for r in roles_env.split(",") if r.strip()]
 
 bypass_env = os.getenv("BYPASS_ROLES", "")
-BYPASS_ROLES = [r.strip() for r in bypass_env.split(",") if r.strip()]
+BYPASS_ROLES = [r.strip().lower() for r in bypass_env.split(",") if r.strip()]
 
-COMMAND_CHANNEL_ID = int(os.getenv("COMMAND_CHANNEL_ID"))
+cmd_channel_raw = os.getenv("COMMAND_CHANNEL_ID")
+COMMAND_CHANNEL_ID = int(cmd_channel_raw) if cmd_channel_raw else None
 
 COOLDOWN = 60
 
@@ -34,7 +36,10 @@ queue = asyncio.Queue()
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
-    bot.loop.create_task(queue_worker())
+    # Check if worker is already running to avoid duplicates on reconnect
+    if not hasattr(bot, 'worker_started'):
+        bot.loop.create_task(queue_worker())
+        bot.worker_started = True
 
 
 async def queue_worker():
@@ -84,10 +89,10 @@ async def create_private_room(ctx, name: str, limit: int):
         return
 
     user = ctx.author
-    user_roles = [role.name for role in user.roles]
+    user_roles = [role.name.lower() for role in user.roles]
 
     if not any(role in ALLOWED_ROLES for role in user_roles):
-        await ctx.send("❌ You are not allowed to create private rooms.")
+        await ctx.send("❌ You are not allowed to create private rooms (Missing Role).")
         return
 
     has_bypass = any(role in BYPASS_ROLES for role in user_roles)
@@ -101,7 +106,7 @@ async def create_private_room(ctx, name: str, limit: int):
             await ctx.send(f"⏳ Wait {int(remaining)} seconds.")
             return
 
-        user_cooldowns[user.id] = now
+        user_cooldowns[user.id] = int(now)
 
     if limit < 1 or limit > 99:
         await ctx.send("❌ Limit must be between 1 and 99.")
