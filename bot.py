@@ -3,64 +3,55 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load env
 load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
+TOKEN = os.getenv('DISCORD_TOKEN')
 
-# Intents (message_content gerek yok artık)
+# Intents (🔥 EN ÖNEMLİ KISIM)
 intents = discord.Intents.default()
+intents.message_content = True  # 🔥 BU ŞART
 intents.voice_states = True
 intents.guilds = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
-
+bot = commands.Bot(command_prefix='!', intents=intents)
 
 CATEGORY_NAME = "Private Rooms"
 
 
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user}")
-
-    try:
-        synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} command(s)")
-    except Exception as e:
-        print(e)
+    print(f'Logged in as {bot.user.name}!')
 
 
-# 🔥 SLASH COMMAND
-@bot.tree.command(name="pr", description="Create a private voice room")
-async def create_private_room(interaction: discord.Interaction, name: str, limit: int):
-    guild = interaction.guild
-    user = interaction.user
+@bot.command(name='pr')
+async def create_private_room(ctx, name: str, limit: int):
+    guild = ctx.guild
 
     # Limit check
     if limit < 1 or limit > 99:
-        await interaction.response.send_message("❌ Limit must be between 1 and 99.", ephemeral=True)
+        await ctx.send("❌ Limit must be between 1 and 99.")
         return
 
-    # Check if user is in voice
-    if not user.voice:
-        await interaction.response.send_message("❌ You must join a voice channel first!", ephemeral=True)
+    # Must be in voice
+    if not ctx.author.voice:
+        await ctx.send("❌ You must join a voice channel first!")
         return
 
-    # Find or create category
+    # Get or create category
     category = discord.utils.get(guild.categories, name=CATEGORY_NAME)
     if category is None:
         category = await guild.create_category(CATEGORY_NAME)
 
-    # Permissions (everyone can join, creator manages)
+    # Permissions (everyone can join)
     overwrites = {
         guild.default_role: discord.PermissionOverwrite(connect=True),
-        user: discord.PermissionOverwrite(
+        ctx.author: discord.PermissionOverwrite(
             manage_channels=True,
             move_members=True
         )
     }
 
     try:
-        # Create channel
         channel = await guild.create_voice_channel(
             name=name,
             category=category,
@@ -69,21 +60,15 @@ async def create_private_room(interaction: discord.Interaction, name: str, limit
         )
 
         # Move user
-        await user.move_to(channel)
+        await ctx.author.move_to(channel)
 
-        await interaction.response.send_message(
-            f"✅ Room created: **{name}** (Limit: {limit})",
-            ephemeral=True
-        )
-
-        print(f"Room created: {name}")
+        await ctx.send(f"✅ Room created: **{name}** (Limit: {limit})")
 
     except Exception as e:
-        await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+        await ctx.send(f"❌ Error: {e}")
         print(e)
 
 
-# Auto delete empty rooms
 @bot.event
 async def on_voice_state_update(member, before, after):
     if before.channel is not None:
@@ -93,13 +78,9 @@ async def on_voice_state_update(member, before, after):
             if len(channel.members) == 0:
                 try:
                     await channel.delete()
-                    print(f"Deleted empty room: {channel.name}")
                 except Exception as e:
                     print(e)
 
 
 if __name__ == "__main__":
-    if TOKEN:
-        bot.run(TOKEN)
-    else:
-        print("DISCORD_TOKEN not found!")
+    bot.run(TOKEN)
