@@ -65,12 +65,19 @@ async def queue_worker():
                 ctx.author: discord.PermissionOverwrite(connect=True, view_channel=True)
             }
 
-            await guild.create_voice_channel(
+            channel = await guild.create_voice_channel(
                 name=name,
                 category=category,
                 user_limit=limit,
                 overwrites=overwrites
             )
+
+            # Move user to the new channel if they are still in a voice channel
+            if ctx.author.voice:
+                try:
+                    await ctx.author.move_to(channel)
+                except Exception as e:
+                    print(f"Could not move user: {e}")
 
             await asyncio.sleep(2)
 
