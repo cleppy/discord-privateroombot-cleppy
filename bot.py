@@ -67,19 +67,21 @@ async def queue_worker():
             overwrites = {
                 guild.default_role: discord.PermissionOverwrite(
                     view_channel=True, connect=True, speak=True, 
-                    send_messages=True, stream=True, use_embedded_activities=True
+                    send_messages=True, stream=True, use_embedded_activities=True,
+                    use_voice_activation=True
                 ),
                 ctx.author: discord.PermissionOverwrite(
                     view_channel=True, connect=True, speak=True, 
                     send_messages=True, stream=True, use_embedded_activities=True,
-                    manage_channels=True, manage_permissions=True
+                    use_voice_activation=True, manage_channels=True, manage_permissions=True
                 )
             }
 
             if viewer_role:
                 overwrites[viewer_role] = discord.PermissionOverwrite(
                     view_channel=True, connect=True, speak=True, 
-                    send_messages=True, stream=True, use_embedded_activities=True
+                    send_messages=True, stream=True, use_embedded_activities=True,
+                    use_voice_activation=True
                 )
 
             channel = await guild.create_voice_channel(
