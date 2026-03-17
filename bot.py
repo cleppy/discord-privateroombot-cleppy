@@ -25,7 +25,7 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix='.', intents=intents)
 
-CATEGORY_NAME = "Private Rooms"
+CATEGORY_NAME = "═══⊹⊱≼𝙿𝚁𝙸𝚅𝙰𝚃𝙴 𝚁𝙾𝙾𝙼𝚂≽⊰⊹═══"
 
 user_cooldowns = {}
 queue = asyncio.Queue()
